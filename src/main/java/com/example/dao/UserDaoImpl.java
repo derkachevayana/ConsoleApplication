@@ -18,11 +18,20 @@ public class UserDaoImpl implements UserDao {
 
     @Override
     public Long save(User user) throws DaoException {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Query<User> query = session.createQuery("FROM User WHERE email = :email", User.class);
+            query.setParameter("email", user.getEmail());
+            if (!query.getResultList().isEmpty()) {
+                logger.warn("Пользователь с email={} уже существует", user.getEmail());
+                throw new DaoException("Email " + user.getEmail() + " уже используется");
+            }
+        }
         Transaction transaction = null;
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             transaction = session.beginTransaction();
             Long id = (Long) session.save(user);
             transaction.commit();
+            logger.info("Создан пользователь ID={}, email={}", id, user.getEmail());
             return id;
         } catch (Exception e) {
             if (transaction != null) {
