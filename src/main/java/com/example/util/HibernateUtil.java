@@ -11,34 +11,55 @@ import org.slf4j.LoggerFactory;
 
 public class HibernateUtil {
     private static final Logger logger = LoggerFactory.getLogger(HibernateUtil.class);
-    private static final SessionFactory sessionFactory = buildSessionFactory();
+    private static SessionFactory sessionFactory;
 
-    private static SessionFactory buildSessionFactory() {
+    static {
+        initializeSessionFactory();
+    }
+
+    private static void initializeSessionFactory() {
         try {
-            StandardServiceRegistry registry = new StandardServiceRegistryBuilder()
-                    .configure("hibernate.cfg.xml")
-                    .build();
+            StandardServiceRegistryBuilder registryBuilder =
+                    new StandardServiceRegistryBuilder()
+                            .configure("hibernate.cfg.xml");
 
+            String testUrl = System.getProperty("hibernate.connection.url");
+            if (testUrl != null) {
+                logger.info("Using test database configuration");
+                registryBuilder.applySetting("hibernate.connection.url", testUrl);
+                registryBuilder.applySetting("hibernate.connection.username",
+                        System.getProperty("hibernate.connection.username"));
+                registryBuilder.applySetting("hibernate.connection.password",
+                        System.getProperty("hibernate.connection.password"));
+                registryBuilder.applySetting("hibernate.hbm2ddl.auto", "create-drop");
+            }
+
+            StandardServiceRegistry registry = registryBuilder.build();
             Metadata metadata = new MetadataSources(registry)
                     .addAnnotatedClass(User.class)
                     .getMetadataBuilder()
                     .build();
-            logger.info("SessionFactory успешно создана");
-            return metadata.getSessionFactoryBuilder().build();
+
+            sessionFactory = metadata.getSessionFactoryBuilder().build();
         } catch (Exception e) {
-            logger.error("Ошибка инициализации SessionFactory", e);
+            logger.error("Error initializing SessionFactory", e);
             throw new ExceptionInInitializerError(e);
         }
     }
+
     public static SessionFactory getSessionFactory() {
         return sessionFactory;
     }
+
     public static void shutdown() {
-        try {
-            getSessionFactory().close();
-            logger.info("SessionFactory закрыта");
-        } catch (Exception e) {
-            logger.error("Ошибка при закрытии SessionFactory", e);
+        if (sessionFactory != null) {
+            sessionFactory.close();
+            sessionFactory = null;
         }
+    }
+
+    public static void reinitialize() {
+        shutdown();
+        initializeSessionFactory();
     }
 }
