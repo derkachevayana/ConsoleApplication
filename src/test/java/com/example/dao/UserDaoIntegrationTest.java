@@ -2,6 +2,7 @@ package com.example.dao;
 
 import com.example.entity.User;
 import com.example.exception.DaoException;
+import com.example.testutil.DatabaseCleaner;
 import com.example.util.HibernateUtil;
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -36,11 +37,8 @@ class UserDaoIntegrationTest {
     }
 
     @BeforeEach
-    void clearDatabase() throws DaoException {
-        List<User> allUsers = userDao.findAll();
-        for (User user : allUsers) {
-            userDao.delete(user.getId());
-        }
+    void setUp() {
+        DatabaseCleaner.clearUsers();
     }
 
     @AfterAll
