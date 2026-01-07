@@ -20,15 +20,19 @@ public class UserService {
     public User createUser(String name, String email, Integer age) throws DaoException {
         logger.info("Создание пользователя: {}, {}", name, email);
 
-        if (userDao.findByEmail(email).isPresent()) {
-            throw new DaoException("Email уже используется: " + email);
+        String trimmedEmail = (email != null) ? email.trim() : email;
+
+        if (userDao.findByEmail(trimmedEmail).isPresent()) {
+            throw new DaoException("Email уже используется: " + trimmedEmail);
         }
 
         if (age != null && (age < 0 || age > 120)) {
             throw new DaoException("Некорректный возраст: " + age);
         }
 
-        User user = new User(name, email, age);
+        String trimmedName = (name != null) ? name.trim() : name;
+        User user = new User(trimmedName, trimmedEmail, age);
+
         Long id = userDao.save(user);
         user.setId(id);
         return user;
@@ -50,15 +54,18 @@ public class UserService {
         User user = userDao.findById(id)
                         .orElseThrow(() -> new DaoException("Пользователь не найден " + id));
 
-        if (email != null && !email.equals(user.getEmail())) {
-            if (userDao.findByEmail(email).isPresent()) {
-                throw new DaoException("Пользователь с email " + email + " уже существует");
+        if (email != null) {
+            String trimmedEmail = email.trim();
+            if (!trimmedEmail.equals(user.getEmail())) {
+                if (userDao.findByEmail(trimmedEmail).isPresent()) {
+                    throw new DaoException("Пользователь с email " + trimmedEmail + " уже существует");
+                }
+                user.setEmail(trimmedEmail);
             }
-            user.setEmail(email);
         }
 
-        if (name != null && !name.isEmpty()) {
-            user.setName(name);
+        if (name != null && !name.trim().isEmpty()) {
+            user.setName(name.trim());
         }
 
         if (age != null) {

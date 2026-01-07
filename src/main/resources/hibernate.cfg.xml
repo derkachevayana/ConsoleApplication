@@ -6,7 +6,7 @@
         <property name="hibernate.connection.url">jdbc:postgresql://localhost:5432/user_db</property>
 
         <property name="hibernate.connection.username">postgres</property>
-        <property name="hibernate.connection.password">postgres</property>
+        <property name="hibernate.connection.password">${DB_PASSWORD}</property>
 
         <property name="hibernate.connection.pool_size">10</property>
 
