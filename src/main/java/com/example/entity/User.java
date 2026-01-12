@@ -3,7 +3,6 @@ package com.example.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -11,26 +10,20 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString
-@EqualsAndHashCode
+@Builder
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(name = "email", nullable = false, unique = true, length = 100)
+    @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(name = "age")
     private Integer age;
-
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
 
     public User(String name, String email, Integer age) {
         this.name = name;
@@ -38,9 +31,7 @@ public class User {
         this.age = age;
     }
 
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-    }
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 }
