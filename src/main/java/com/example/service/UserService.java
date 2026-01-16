@@ -82,9 +82,6 @@ public class UserService {
         }
 
         if (request.getAge() != null) {
-            if (request.getAge() < 0 || request.getAge() > 120) {
-                throw new IllegalArgumentException("Age must be between 0 and 120");
-            }
             user.setAge(request.getAge());
         }
 
