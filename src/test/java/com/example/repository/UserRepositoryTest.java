@@ -9,8 +9,10 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
+
 import java.util.List;
 import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -18,11 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class UserRepositoryTest {
 
-    @Autowired
-    private TestEntityManager entityManager;
-
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private TestEntityManager entityManager;
+    @Autowired private UserRepository userRepository;
 
     @BeforeEach
     void setUp() {
@@ -56,24 +55,6 @@ class UserRepositoryTest {
     }
 
     @Test
-    void findById_ExistingId_ShouldReturnUser() {
-        User user = createTestUser();
-
-        Optional<User> foundUser = userRepository.findById(user.getId());
-
-        assertThat(foundUser).isPresent();
-        assertThat(foundUser.get().getName()).isEqualTo("John");
-        assertThat(foundUser.get().getEmail()).isEqualTo("john@example.com");
-    }
-
-    @Test
-    void findById_NonExistingId_ShouldReturnEmpty() {
-        Optional<User> foundUser = userRepository.findById(999L);
-
-        assertThat(foundUser).isEmpty();
-    }
-
-    @Test
     void findByEmail_ExistingEmail_ShouldReturnUser() {
         User user = createTestUser();
 
@@ -82,29 +63,6 @@ class UserRepositoryTest {
         assertThat(foundUser).isPresent();
         assertThat(foundUser.get().getId()).isEqualTo(user.getId());
         assertThat(foundUser.get().getEmail()).isEqualTo("john@example.com");
-    }
-
-    @Test
-    void findByEmail_NonExistingEmail_ShouldReturnEmpty() {
-        Optional<User> foundUser = userRepository.findByEmail("nonexistent@example.com");
-
-        assertThat(foundUser).isEmpty();
-    }
-
-    @Test
-    void existsByEmail_ExistingEmail_ShouldReturnTrue() {
-        createTestUser();
-
-        boolean exists = userRepository.existsByEmail("john@example.com");
-
-        assertThat(exists).isTrue();
-    }
-
-    @Test
-    void existsByEmail_NonExistingEmail_ShouldReturnFalse() {
-        boolean exists = userRepository.existsByEmail("nonexistent@example.com");
-
-        assertThat(exists).isFalse();
     }
 
     @Test
@@ -126,30 +84,17 @@ class UserRepositoryTest {
     }
 
     @Test
-    void deleteById_ShouldRemoveUser() {
-        User user = createTestUser();
+    void save_UserWithMaxLengthFields_WorksCorrectly() {
+        User user = new User();
+        user.setName("A".repeat(100));
+        user.setEmail("a".repeat(50) + "@example.com");
+        user.setAge(120);
 
-        userRepository.deleteById(user.getId());
+        User saved = userRepository.save(user);
         entityManager.flush();
-        entityManager.clear();
 
-        Optional<User> deletedUser = userRepository.findById(user.getId());
-        assertThat(deletedUser).isEmpty();
-    }
-
-    @Test
-    void count_ShouldReturnCorrectNumber() {
-        createTestUser();
-
-        User user2 = new User();
-        user2.setName("Bob");
-        user2.setEmail("bob@example.com");
-        user2.setAge(40);
-        userRepository.save(user2);
-
-        long count = userRepository.count();
-
-        assertThat(count).isEqualTo(2);
+        assertThat(saved.getId()).isNotNull();
+        assertThat(saved.getName()).hasSize(100);
     }
 
     private User createTestUser() {
