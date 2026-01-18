@@ -25,12 +25,6 @@ public class User {
 
     private Integer age;
 
-    public User(String name, String email, Integer age) {
-        this.name = name;
-        this.email = email;
-        this.age = age;
-    }
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -2,11 +2,11 @@ package com.example.controller;
 
 import com.example.dto.UserRequest;
 import com.example.dto.UserResponse;
+import com.example.dto.UserUpdateRequest;
 import com.example.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -41,7 +41,7 @@ public class UserController {
     @PutMapping("/{id}")
     public UserResponse updateUser(
             @PathVariable Long id,
-            @Valid @RequestBody UserRequest request) {
+            @Valid @RequestBody UserUpdateRequest request) {
         return userService.updateUser(id, request);
     }
 
