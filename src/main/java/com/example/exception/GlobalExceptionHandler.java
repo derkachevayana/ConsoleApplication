@@ -1,7 +1,6 @@
 package com.example.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -26,8 +25,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public String handleIllegalArgument(IllegalArgumentException ex) {
-        return ex.getMessage();
+    public Map<String, String> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, String> error = new HashMap<>();
+
+        if (ex.getMessage() != null && ex.getMessage().contains("Email must contain")) {
+            error.put("email", ex.getMessage());
+        } else {
+            error.put("error", ex.getMessage());
+        }
+
+        return error;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

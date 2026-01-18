@@ -2,6 +2,7 @@ package com.example.service;
 
 import com.example.dto.UserRequest;
 import com.example.dto.UserResponse;
+import com.example.dto.UserUpdateRequest;
 import com.example.entity.User;
 import com.example.exception.UserNotFoundException;
 import com.example.exception.UserAlreadyExistsException;
@@ -23,6 +24,10 @@ public class UserService {
 
         String trimmedEmail = request.getEmail().trim();
         String trimmedName = request.getName().trim();
+
+        if (!isValidEmail(trimmedEmail)) {
+            throw new IllegalArgumentException("Email must contain @ and a dot in domain (e.g., user@example.com)");
+        }
 
         if (userRepository.existsByEmail(trimmedEmail)) {
             throw new UserAlreadyExistsException("Email already exists: " + trimmedEmail);
@@ -57,13 +62,16 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateUser(Long id, UserRequest request) {
+    public UserResponse updateUser(Long id, UserUpdateRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + id));
 
         if (request.getEmail() != null) {
             String newEmail = request.getEmail().trim();
             if (!newEmail.isEmpty()) {
+                if (!isValidEmail(newEmail)) {
+                    throw new IllegalArgumentException("Email must contain @ and a dot in domain (e.g., user@example.com)");
+                }
                 if (!newEmail.equals(user.getEmail())) {
                     if (userRepository.existsByEmail(newEmail)) {
                         throw new UserAlreadyExistsException("Email already exists: " + newEmail);
@@ -72,7 +80,6 @@ public class UserService {
                 }
             }
         }
-
 
         if (request.getName() != null) {
             String newName = request.getName().trim();
@@ -105,5 +112,10 @@ public class UserService {
         response.setAge(user.getAge());
         response.setCreatedAt(user.getCreatedAt());
         return response;
+    }
+
+    private boolean isValidEmail(String email) {
+        String emailRegex = "^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$";
+        return email != null && email.matches(emailRegex);
     }
 }
