@@ -1,6 +1,5 @@
 package com.example.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Data;
 import lombok.AllArgsConstructor;
@@ -14,7 +13,6 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorResponse {
     private LocalDateTime timestamp;
     private int status;
@@ -41,16 +39,6 @@ public class ErrorResponse {
                 .error(status.getReasonPhrase())
                 .message(message)
                 .details(details)
-                .path(path)
-                .build();
-    }
-
-    public static ErrorResponse of(HttpStatus status, Exception ex, String path) {
-        return ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(status.value())
-                .error(status.getReasonPhrase())
-                .message(ex.getMessage())
                 .path(path)
                 .build();
     }

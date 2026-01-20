@@ -1,17 +1,19 @@
 package com.example.dto;
 
-import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
 public class UserUpdateRequest {
 
-    @Nullable
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
 
-    @Nullable
     private String email;
 
-    @Nullable
+    @Min(value = 0, message = "Age must be positive or zero")
+    @Max(value = 120, message = "Age must be less than or equal to 120")
     private Integer age;
 }

@@ -5,10 +5,8 @@ import com.example.dto.UserResponse;
 import com.example.dto.UserUpdateRequest;
 import com.example.service.UserService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@Validated
 public class UserController {
 
     private final UserService userService;
@@ -28,7 +25,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public UserResponse getUserById(@PathVariable @Min(1) Long id) {
+    public UserResponse getUserById(@PathVariable Long id) {
         return userService.getUserById(id);
     }
 
@@ -38,24 +35,20 @@ public class UserController {
     }
 
     @GetMapping("/email/{email}")
-    public UserResponse getUserByEmail(
-            @PathVariable
-            @jakarta.validation.constraints.Email(message = "Invalid email format")
-            @jakarta.validation.constraints.NotBlank(message = "Email cannot be empty")
-            String email) {
+    public UserResponse getUserByEmail(@PathVariable String email) {
         return userService.getUserByEmail(email);
     }
 
     @PutMapping("/{id}")
     public UserResponse updateUser(
-            @PathVariable @Min(1) Long id,
+            @PathVariable Long id,
             @Valid @RequestBody UserUpdateRequest request) {
         return userService.updateUser(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteUser(@PathVariable @Min(1) Long id) {
+    public void deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
     }
 }

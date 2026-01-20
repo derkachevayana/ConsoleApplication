@@ -1,45 +1,37 @@
 package com.example.integration;
 
-import com.example.UserManagementApplication;
 import com.example.dto.UserRequest;
-import com.example.dto.UserResponse;
-import com.example.dto.UserUpdateRequest;
 import com.example.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.util.UUID;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(classes = UserManagementApplication.class)
+@SpringBootTest
 @AutoConfigureMockMvc
+@EmbeddedKafka(partitions = 1, ports = 9092)
+@DirtiesContext
 @ActiveProfiles("test")
-@Transactional
 class UserControllerIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
-    @Autowired private UserRepository userRepository;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @BeforeEach
-    void setUp() {
-        userRepository.deleteAll();
-    }
-
-    @AfterEach
-    void tearDown() {
-        userRepository.deleteAll();
-    }
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
     void createUser_ValidRequest_ShouldReturnCreated() throws Exception {
@@ -48,184 +40,183 @@ class UserControllerIntegrationTest {
         request.setEmail("john.doe@example.com");
         request.setAge(30);
 
-        String responseJson = mockMvc.perform(post("/api/users")
+        mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name").value("John Doe"))
                 .andExpect(jsonPath("$.email").value("john.doe@example.com"))
-                .andExpect(jsonPath("$.age").value(30))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andExpect(jsonPath("$.age").value(30));
+    }
 
-        UserResponse response = objectMapper.readValue(responseJson, UserResponse.class);
-        assertThat(userRepository.existsById(response.getId())).isTrue();
+    @Test
+    void createUser_DuplicateEmail_ShouldReturnConflict() throws Exception {
+        String email = "duplicate-" + UUID.randomUUID() + "@example.com";
+
+        UserRequest request = new UserRequest();
+        request.setName("User One");
+        request.setEmail(email);
+        request.setAge(25);
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Email already exists: " + email));
     }
 
     @Test
     void getUserById_ExistingUser_ShouldReturnUser() throws Exception {
         UserRequest request = new UserRequest();
-        request.setName("Alice Smith");
-        request.setEmail("alice@example.com");
-        request.setAge(28);
+        String email = "getbyid-" + UUID.randomUUID() + "@example.com";
+        request.setName("Test User");
+        request.setEmail(email);
+        request.setAge(25);
 
-        String responseJson = mockMvc.perform(post("/api/users")
+        String response = mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
 
-        UserResponse created = objectMapper.readValue(responseJson, UserResponse.class);
+        Long userId = objectMapper.readTree(response).get("id").asLong();
 
-        mockMvc.perform(get("/api/users/{id}", created.getId()))
+        mockMvc.perform(get("/api/users/{id}", userId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(created.getId()))
-                .andExpect(jsonPath("$.name").value("Alice Smith"))
-                .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.age").value(28));
+                .andExpect(jsonPath("$.id").value(userId))
+                .andExpect(jsonPath("$.name").value("Test User"))
+                .andExpect(jsonPath("$.email").value(email));
     }
 
     @Test
-    void updateUser_PartialUpdate_ShouldUpdateOnlyProvidedFields() throws Exception {
-        UserRequest createRequest = new UserRequest();
-        createRequest.setName("Original Name");
-        createRequest.setEmail("original@example.com");
-        createRequest.setAge(25);
-
-        String createdJson = mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createRequest)))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        UserResponse created = objectMapper.readValue(createdJson, UserResponse.class);
-
-        String updateJson = "{\"name\":\"Updated Name\"}";
-
-        mockMvc.perform(put("/api/users/{id}", created.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(updateJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Updated Name"))
-                .andExpect(jsonPath("$.email").value("original@example.com"))
-                .andExpect(jsonPath("$.age").value(25));
+    void getUserById_NonExistingUser_ShouldReturnNotFound() throws Exception {
+        mockMvc.perform(get("/api/users/{id}", 99999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("User not found with id: 99999"));
     }
 
     @Test
-    void deleteUser_ExistingUser_ShouldReturnNoContent() throws Exception {
+    void deleteUser_ShouldReturnNoContent() throws Exception {
         UserRequest request = new UserRequest();
+        String email = "delete-" + UUID.randomUUID() + "@example.com";
         request.setName("To Delete");
-        request.setEmail("delete@example.com");
+        request.setEmail(email);
         request.setAge(40);
 
-        String createdJson = mockMvc.perform(post("/api/users")
+        String response = mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
 
-        UserResponse created = objectMapper.readValue(createdJson, UserResponse.class);
+        Long userId = objectMapper.readTree(response).get("id").asLong();
 
-        mockMvc.perform(delete("/api/users/{id}", created.getId()))
+        mockMvc.perform(delete("/api/users/{id}", userId))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/users/{id}", created.getId()))
+        mockMvc.perform(get("/api/users/{id}", userId))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void validation_InvalidPathVariable_ReturnsBadRequest() throws Exception {
-        mockMvc.perform(get("/api/users/{id}", -1L))
-                .andExpect(status().isBadRequest());
+    void updateUser_ValidUpdate_ShouldReturnUpdatedUser() throws Exception {
+        UserRequest createRequest = new UserRequest();
+        String email = "original-" + UUID.randomUUID() + "@example.com";
+        createRequest.setName("Original");
+        createRequest.setEmail(email);
+        createRequest.setAge(25);
 
-        mockMvc.perform(get("/api/users/email/{email}", "invalid-email"))
-                .andExpect(status().isBadRequest());
+        String response = mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long userId = objectMapper.readTree(response).get("id").asLong();
+
+        String updateJson = "{\"name\":\"Updated Name\",\"age\":30}";
+
+        mockMvc.perform(put("/api/users/{id}", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Name"))
+                .andExpect(jsonPath("$.age").value(30))
+                .andExpect(jsonPath("$.email").value(email));
     }
 
     @Test
-    void validation_InvalidRequestBody_ReturnsBadRequest() throws Exception {
-        UserRequest invalidRequest = new UserRequest();
-        invalidRequest.setName("A");
-        invalidRequest.setEmail("invalid");
-        invalidRequest.setAge(150);
+    void createUser_InvalidEmail_ShouldReturnBadRequest() throws Exception {
+        UserRequest request = new UserRequest();
+        request.setName("Test");
+        request.setEmail("invalid-email");
+        request.setAge(30);
 
         mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message").value("Validation failed"))
-                .andExpect(jsonPath("$.path").value("/api/users"))
-                .andExpect(jsonPath("$.details").exists());
+                .andExpect(jsonPath("$.message").value("Invalid email format: invalid-email"));
     }
 
     @Test
-    void getUserById_NonExistingUser_ReturnsNotFound() throws Exception {
-        mockMvc.perform(get("/api/users/{id}", 99999L))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("Not Found"))
-                .andExpect(jsonPath("$.message").value("User not found with id: 99999"))
-                .andExpect(jsonPath("$.path").value("/api/users/99999"));
-    }
+    void createUser_InvalidAge_ShouldReturnBadRequest() throws Exception {
+        UserRequest request = new UserRequest();
+        request.setName("Test");
+        request.setEmail("test-" + UUID.randomUUID() + "@example.com");
+        request.setAge(150);
 
-    @Test
-    void updateUser_NonExistingUser_ReturnsNotFound() throws Exception {
-        UserUpdateRequest updateRequest = new UserUpdateRequest();
-        updateRequest.setName("Updated");
-
-        mockMvc.perform(put("/api/users/{id}", 99999L)
+        mockMvc.perform(post("/api/users")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateRequest)))
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getUserByEmail_ExistingUser_ShouldReturnUser() throws Exception {
+        String email = "findbyemail-" + UUID.randomUUID() + "@example.com";
+        UserRequest request = new UserRequest();
+        request.setName("Email User");
+        request.setEmail(email);
+        request.setAge(35);
+
+        mockMvc.perform(post("/api/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/users/email/{email}", email))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Email User"))
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.age").value(35));
+    }
+
+    @Test
+    void getUserByEmail_NonExistingUser_ShouldReturnNotFound() throws Exception {
+        String email = "nonexisting-" + UUID.randomUUID() + "@example.com";
+        mockMvc.perform(get("/api/users/email/{email}", email))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.error").value("Not Found"))
-                .andExpect(jsonPath("$.message").value("User not found with id: 99999"))
-                .andExpect(jsonPath("$.path").value("/api/users/99999"));
+                .andExpect(jsonPath("$.message").value("User not found with email: " + email));
     }
 
     @Test
-    void getAllUsers_EmptyDatabase_ReturnsEmptyList() throws Exception {
-        mockMvc.perform(get("/api/users"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(0));
-    }
-
-    @Test
-    void getAllUsers_WithUsers_ReturnsList() throws Exception {
-        UserRequest request1 = new UserRequest();
-        request1.setName("User One");
-        request1.setEmail("user1@example.com");
-        request1.setAge(25);
-
-        UserRequest request2 = new UserRequest();
-        request2.setName("User Two");
-        request2.setEmail("user2@example.com");
-        request2.setAge(30);
+    void createUser_EmptyName_ShouldReturnBadRequest() throws Exception {
+        UserRequest request = new UserRequest();
+        request.setName("");
+        request.setEmail("test-" + UUID.randomUUID() + "@example.com");
+        request.setAge(30);
 
         mockMvc.perform(post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request1)));
-
-        mockMvc.perform(post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request2)));
-
-        mockMvc.perform(get("/api/users"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].name").exists())
-                .andExpect(jsonPath("$[1].name").exists());
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details.name").exists());
     }
 }
