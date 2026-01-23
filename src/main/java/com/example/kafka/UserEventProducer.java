@@ -12,7 +12,7 @@ public class UserEventProducer {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
 
-    public void sendUserEvent(String eventType, String email, Long userId, String userName) {
+    public void sendUserEvent(UserEventType eventType, String email, Long userId, String userName) {
         try {
             String eventJson = String.format(
                     "{\"eventType\":\"%s\",\"email\":\"%s\",\"userId\":%d,\"userName\":\"%s\",\"timestamp\":%d}",

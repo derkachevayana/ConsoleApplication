@@ -8,6 +8,7 @@ import com.example.exception.EmailValidationException;
 import com.example.exception.UserAlreadyExistsException;
 import com.example.exception.UserNotFoundException;
 import com.example.kafka.UserEventProducer;
+import com.example.kafka.UserEventType;
 import com.example.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,7 @@ public class UserService {
                 User savedUser = userRepository.save(user);
 
                 userEventProducer.sendUserEvent(
-                        "USER_CREATED",
+                        UserEventType.USER_CREATED,
                         savedUser.getEmail(),
                         savedUser.getId(),
                         savedUser.getName()
@@ -130,7 +131,7 @@ public class UserService {
         userRepository.delete(user);
 
         userEventProducer.sendUserEvent(
-                "USER_DELETED",
+                UserEventType.USER_DELETED,
                 user.getEmail(),
                 user.getId(),
                 user.getName()
