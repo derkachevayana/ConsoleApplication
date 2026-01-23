@@ -1,5 +1,6 @@
 package com.example.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
@@ -11,6 +12,7 @@ public class UserUpdateRequest {
     @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     private String name;
 
+    @Email(message = "Invalid email format")
     private String email;
 
     @Min(value = 0, message = "Age must be positive or zero")

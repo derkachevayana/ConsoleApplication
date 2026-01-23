@@ -6,15 +6,15 @@ import com.example.dto.UserUpdateRequest;
 import com.example.exception.EmailValidationException;
 import com.example.exception.UserAlreadyExistsException;
 import com.example.exception.UserNotFoundException;
+import com.example.repository.UserRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +27,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, ports = 9092, topics = {"user-events"})
-@DirtiesContext
 @ActiveProfiles("test")
 @Transactional
 class UserServiceIntegrationTest {
@@ -38,8 +37,12 @@ class UserServiceIntegrationTest {
     @Autowired
     private ConsumerFactory<String, String> consumerFactory;
 
-    @AfterEach
-    void tearDown() {
+    @Autowired
+    private UserRepository userRepository;
+
+    @BeforeEach
+    void setUp() {
+        userRepository.deleteAll();
     }
 
     @Test
@@ -146,19 +149,6 @@ class UserServiceIntegrationTest {
                 .isInstanceOf(UserAlreadyExistsException.class)
                 .hasMessageContaining("Email already exists");
     }
-
-    @Test
-    void createUser_InvalidEmailFormat_ShouldThrowException() {
-        UserRequest request = new UserRequest();
-        request.setName("Test");
-        request.setEmail("invalid-email-format");
-        request.setAge(30);
-
-        assertThatThrownBy(() -> userService.createUser(request))
-                .isInstanceOf(EmailValidationException.class)
-                .hasMessageContaining("Invalid email format");
-    }
-
 
     @Test
     void createUser_ShouldSendKafkaEvent() throws Exception {

@@ -8,6 +8,7 @@ import com.example.exception.EmailValidationException;
 import com.example.exception.UserAlreadyExistsException;
 import com.example.exception.UserNotFoundException;
 import com.example.kafka.UserEventProducer;
+import com.example.kafka.UserEventType;
 import com.example.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +28,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserEventProducer userEventProducer;
 
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$");
-
     @Transactional
     public UserResponse createUser(UserRequest request) {
 
@@ -37,8 +35,6 @@ public class UserService {
                 request.getEmail().trim().toLowerCase() : "";
         String name = request.getName() != null ?
                 request.getName().trim() : "";
-
-        validateEmail(email);
 
         User user = User.builder()
                     .name(name)
@@ -50,7 +46,7 @@ public class UserService {
                 User savedUser = userRepository.save(user);
 
                 userEventProducer.sendUserEvent(
-                        "USER_CREATED",
+                        UserEventType.USER_CREATED,
                         savedUser.getEmail(),
                         savedUser.getId(),
                         savedUser.getName()
@@ -100,7 +96,6 @@ public class UserService {
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             String newEmail = request.getEmail().trim().toLowerCase();
-            validateEmail(newEmail);
             user.setEmail(newEmail);
         }
 
@@ -130,20 +125,13 @@ public class UserService {
         userRepository.delete(user);
 
         userEventProducer.sendUserEvent(
-                "USER_DELETED",
+                UserEventType.USER_DELETED,
                 user.getEmail(),
                 user.getId(),
                 user.getName()
         );
 
         log.info("Deleted user with id: {}, email: {}", id, user.getEmail());
-    }
-
-    private void validateEmail(String email) {
-
-        if (!EMAIL_PATTERN.matcher(email).matches()) {
-            throw new EmailValidationException("Invalid email format: " + email);
-        }
     }
 
     private UserResponse mapToResponse(User user) {
