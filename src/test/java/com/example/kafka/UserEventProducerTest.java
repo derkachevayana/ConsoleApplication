@@ -23,14 +23,13 @@ class UserEventProducerTest {
 
     @Test
     void sendUserEvent_ShouldSendCorrectMessage() {
-        String eventType = "USER_CREATED";
         String email = "test@example.com";
         Long userId = 123L;
         String userName = "Test User";
 
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
 
-        userEventProducer.sendUserEvent(eventType, email, userId, userName);
+        userEventProducer.sendUserEvent(UserEventType.USER_CREATED, email, userId, userName);
 
         verify(kafkaTemplate).send(eq("user-events"), eq(email), messageCaptor.capture());
 

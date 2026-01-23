@@ -169,7 +169,7 @@ class UserControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid email format: invalid-email"));
+                .andExpect(jsonPath("$.message").value("Validation failed"));
     }
 
     @Test

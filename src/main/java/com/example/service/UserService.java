@@ -28,9 +28,6 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserEventProducer userEventProducer;
 
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[\\w.%+-]+@[\\w.-]+\\.[A-Za-z]{2,}$");
-
     @Transactional
     public UserResponse createUser(UserRequest request) {
 
@@ -38,8 +35,6 @@ public class UserService {
                 request.getEmail().trim().toLowerCase() : "";
         String name = request.getName() != null ?
                 request.getName().trim() : "";
-
-        validateEmail(email);
 
         User user = User.builder()
                     .name(name)
@@ -101,7 +96,6 @@ public class UserService {
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             String newEmail = request.getEmail().trim().toLowerCase();
-            validateEmail(newEmail);
             user.setEmail(newEmail);
         }
 
@@ -138,13 +132,6 @@ public class UserService {
         );
 
         log.info("Deleted user with id: {}, email: {}", id, user.getEmail());
-    }
-
-    private void validateEmail(String email) {
-
-        if (!EMAIL_PATTERN.matcher(email).matches()) {
-            throw new EmailValidationException("Invalid email format: " + email);
-        }
     }
 
     private UserResponse mapToResponse(User user) {

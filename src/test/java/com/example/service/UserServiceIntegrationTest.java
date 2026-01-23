@@ -151,19 +151,6 @@ class UserServiceIntegrationTest {
     }
 
     @Test
-    void createUser_InvalidEmailFormat_ShouldThrowException() {
-        UserRequest request = new UserRequest();
-        request.setName("Test");
-        request.setEmail("invalid-email-format");
-        request.setAge(30);
-
-        assertThatThrownBy(() -> userService.createUser(request))
-                .isInstanceOf(EmailValidationException.class)
-                .hasMessageContaining("Invalid email format");
-    }
-
-
-    @Test
     void createUser_ShouldSendKafkaEvent() throws Exception {
         UserRequest request = new UserRequest();
         String email = "kafka-" + UUID.randomUUID() + "@example.com";
