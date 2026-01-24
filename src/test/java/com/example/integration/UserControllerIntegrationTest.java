@@ -54,7 +54,8 @@ class UserControllerIntegrationTest {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.name").value("John Doe"))
                 .andExpect(jsonPath("$.email").value("john.doe@example.com"))
-                .andExpect(jsonPath("$.age").value(30));
+                .andExpect(jsonPath("$.age").value(30))
+                .andExpect(jsonPath("$._links").exists());
     }
 
     @Test
@@ -98,7 +99,8 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.name").value("Test User"))
-                .andExpect(jsonPath("$.email").value(email));
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$._links").exists());
     }
 
     @Test
@@ -155,7 +157,8 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Updated Name"))
                 .andExpect(jsonPath("$.age").value(30))
-                .andExpect(jsonPath("$.email").value(email));
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$._links").exists());
     }
 
     @Test
@@ -202,7 +205,8 @@ class UserControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Email User"))
                 .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.age").value(35));
+                .andExpect(jsonPath("$.age").value(35))
+                .andExpect(jsonPath("$._links").exists());
     }
 
     @Test
@@ -225,5 +229,26 @@ class UserControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details.name").exists());
+    }
+
+    @Test
+    void getAllUsers_ShouldReturnListWithLinks() throws Exception {
+        for (int i = 0; i < 2; i++) {
+            UserRequest request = new UserRequest();
+            request.setName("User " + i);
+            request.setEmail("user" + i + "-" + UUID.randomUUID() + "@example.com");
+            request.setAge(20 + i);
+
+            mockMvc.perform(post("/api/users")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(get("/api/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$._embedded.userResponseList").isArray())
+                .andExpect(jsonPath("$._embedded.userResponseList.length()").value(2))
+                .andExpect(jsonPath("$._links").exists());
     }
 }

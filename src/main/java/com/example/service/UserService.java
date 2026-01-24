@@ -4,7 +4,6 @@ import com.example.dto.UserRequest;
 import com.example.dto.UserResponse;
 import com.example.dto.UserUpdateRequest;
 import com.example.entity.User;
-import com.example.exception.EmailValidationException;
 import com.example.exception.UserAlreadyExistsException;
 import com.example.exception.UserNotFoundException;
 import com.example.kafka.UserEventProducer;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 @Slf4j
 @Service

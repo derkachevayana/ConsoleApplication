@@ -1,5 +1,6 @@
 package com.example.kafka;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -11,13 +12,19 @@ import org.springframework.stereotype.Service;
 public class UserEventProducer {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     public void sendUserEvent(UserEventType eventType, String email, Long userId, String userName) {
         try {
-            String eventJson = String.format(
-                    "{\"eventType\":\"%s\",\"email\":\"%s\",\"userId\":%d,\"userName\":\"%s\",\"timestamp\":%d}",
-                    eventType, email, userId, userName, System.currentTimeMillis()
+            UserEvent event = new UserEvent(
+                    eventType,
+                    email,
+                    userId,
+                    userName,
+                    System.currentTimeMillis()
             );
+
+            String eventJson = objectMapper.writeValueAsString(event);
 
             log.info("📤 Sending to Kafka: {}", eventJson);
             kafkaTemplate.send("user-events", email, eventJson);
