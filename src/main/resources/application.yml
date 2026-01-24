@@ -26,4 +26,18 @@ spring:
         max.block.ms: 60000
         retries: 1
         retry.backoff.ms: 1000
-        debug: true
+        #debug: true
+
+  springdoc:
+    api-docs:
+      path: /api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+      operations-sorter: method
+      tags-sorter: alpha
+      display-request-duration: true
+      try-it-out-enabled: true
+
+  logging:
+    level:
+      org.springframework.hateoas: DEBUG
