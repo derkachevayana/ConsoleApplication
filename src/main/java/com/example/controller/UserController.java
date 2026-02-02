@@ -18,6 +18,7 @@ import org.springframework.hateoas.IanaLinkRelations;
 import org.springframework.hateoas.Link;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import com.example.service.CircuitBreakerService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +33,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 public class UserController {
 
     private final UserService userService;
+    private final CircuitBreakerService circuitBreakerService;
 
     @Operation(
             summary = "Создать нового пользователя",
@@ -208,4 +210,27 @@ public class UserController {
 
         userService.deleteUser(id);
     }
+
+    @Operation(summary = "Получить пользователя с Circuit Breaker защитой")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Пользователь найден или fallback данные",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))
+            )
+    })
+    @GetMapping("/circuit/{id}")
+    public UserResponse getUserWithCircuitBreaker(
+            @Parameter(description = "ID пользователя", example = "1", required = true)
+            @PathVariable Long id) {
+
+        UserResponse response = circuitBreakerService.getUserWithCircuitBreaker(id);
+
+        response.add(linkTo(methodOn(UserController.class).getUserWithCircuitBreaker(id)).withSelfRel());
+        response.add(linkTo(methodOn(UserController.class).getUserById(id)).withRel("direct-link"));
+        response.add(linkTo(methodOn(UserController.class).getAllUsers()).withRel(IanaLinkRelations.COLLECTION));
+
+        return response;
+    }
+
 }
