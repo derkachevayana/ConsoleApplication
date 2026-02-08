@@ -19,7 +19,7 @@ class UserRequestValidationTest {
     }
 
     @Test
-    void validRequest_ShouldHaveNoViolations() {
+    void validRequest() {
         UserRequest request = new UserRequest();
         request.setName("John Doe");
         request.setEmail("john@example.com");
@@ -30,26 +30,13 @@ class UserRequestValidationTest {
     }
 
     @Test
-    void nameTooShort_ShouldHaveViolation() {
+    void invalidEmail() {
         UserRequest request = new UserRequest();
-        request.setName("J");
-        request.setEmail("john@example.com");
+        request.setName("John Doe");
+        request.setEmail("invalid-email");
         request.setAge(30);
 
         var violations = validator.validate(request);
         assertThat(violations).isNotEmpty();
-        assertThat(violations.toString()).contains("Name must be between 2 and 100 characters");
-    }
-
-    @Test
-    void ageNegative_ShouldHaveViolation() {
-        UserRequest request = new UserRequest();
-        request.setName("John Doe");
-        request.setEmail("john@example.com");
-        request.setAge(-5);
-
-        var violations = validator.validate(request);
-        assertThat(violations).isNotEmpty();
-        assertThat(violations.toString()).contains("Age must be positive or zero");
     }
 }

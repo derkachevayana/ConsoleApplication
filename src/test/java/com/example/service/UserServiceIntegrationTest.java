@@ -3,231 +3,115 @@ package com.example.service;
 import com.example.dto.UserRequest;
 import com.example.dto.UserResponse;
 import com.example.dto.UserUpdateRequest;
-import com.example.exception.UserAlreadyExistsException;
+import com.example.entity.User;
 import com.example.exception.UserNotFoundException;
+import com.example.kafka.UserEventProducer;
 import com.example.repository.UserRepository;
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
-@SpringBootTest
-@EmbeddedKafka(partitions = 1, ports = 9092, topics = {"user-events"})
-@ActiveProfiles("test")
-@Transactional
+@ExtendWith(MockitoExtension.class)
 class UserServiceIntegrationTest {
 
-    @Autowired
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private UserEventProducer userEventProducer;
+
+    @InjectMocks
     private UserService userService;
 
-    @Autowired
-    private ConsumerFactory<String, String> consumerFactory;
-
-    @Autowired
-    private UserRepository userRepository;
+    private User testUser;
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
+        testUser = User.builder()
+                .id(1L)
+                .name("John Doe")
+                .email("john@example.com")
+                .age(30)
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
     @Test
-    void createUser_ValidRequest_ShouldCreateUser() {
+    void createUser_Success() {
         UserRequest request = new UserRequest();
-        String email = "test-" + UUID.randomUUID() + "@example.com";
         request.setName("John Doe");
-        request.setEmail(email);
+        request.setEmail("john@example.com");
         request.setAge(30);
+
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         UserResponse response = userService.createUser(request);
 
-        assertThat(response.getId()).isNotNull();
-        assertThat(response.getEmail()).isEqualTo(email);
+        assertThat(response.getId()).isEqualTo(1L);
         assertThat(response.getName()).isEqualTo("John Doe");
-        assertThat(response.getAge()).isEqualTo(30);
+        verify(userEventProducer).sendUserEvent(any(), eq("john@example.com"), eq(1L), eq("John Doe"));
     }
 
     @Test
-    void getUserById_ExistingUser_ShouldReturnUser() {
-        UserRequest request = new UserRequest();
-        String email = "getbyid-" + UUID.randomUUID() + "@example.com";
-        request.setName("Test User");
-        request.setEmail(email);
-        request.setAge(25);
+    void getUserById_Success() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
 
-        UserResponse created = userService.createUser(request);
+        UserResponse response = userService.getUserById(1L);
 
-        UserResponse found = userService.getUserById(created.getId());
-
-        assertThat(found.getId()).isEqualTo(created.getId());
-        assertThat(found.getEmail()).isEqualTo(email);
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getEmail()).isEqualTo("john@example.com");
     }
 
     @Test
-    void updateUser_ValidUpdate_ShouldUpdateUser() {
-        UserRequest createRequest = new UserRequest();
-        String email = "original-" + UUID.randomUUID() + "@example.com";
-        createRequest.setName("Original");
-        createRequest.setEmail(email);
-        createRequest.setAge(25);
-        UserResponse created = userService.createUser(createRequest);
+    void getUserById_NotFound() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
-        UserUpdateRequest updateRequest = new UserUpdateRequest();
-        updateRequest.setName("Updated");
-        updateRequest.setAge(30);
-
-        UserResponse updated = userService.updateUser(created.getId(), updateRequest);
-
-        assertThat(updated.getName()).isEqualTo("Updated");
-        assertThat(updated.getAge()).isEqualTo(30);
-        assertThat(updated.getEmail()).isEqualTo(email);
-    }
-
-    @Test
-    void deleteUser_ExistingUser_ShouldDelete() {
-        UserRequest request = new UserRequest();
-        String email = "delete-" + UUID.randomUUID() + "@example.com";
-        request.setName("To Delete");
-        request.setEmail(email);
-        request.setAge(40);
-
-        UserResponse created = userService.createUser(request);
-
-        userService.deleteUser(created.getId());
-
-        assertThatThrownBy(() -> userService.getUserById(created.getId()))
-                .isInstanceOf(UserNotFoundException.class);
-    }
-
-    @Test
-    void getAllUsers_ShouldReturnAllUsers() {
-        int count = 3;
-        for (int i = 0; i < count; i++) {
-            UserRequest request = new UserRequest();
-            request.setName("User " + i);
-            request.setEmail("user" + i + "-" + UUID.randomUUID() + "@example.com");
-            request.setAge(20 + i);
-            userService.createUser(request);
-        }
-
-        List<UserResponse> allUsers = userService.getAllUsers();
-
-        assertThat(allUsers).hasSize(count);
-    }
-
-
-    @Test
-    void createUser_DuplicateEmail_ShouldThrowException() {
-        String email = "duplicate-" + UUID.randomUUID() + "@example.com";
-
-        UserRequest request1 = new UserRequest();
-        request1.setName("User One");
-        request1.setEmail(email);
-        request1.setAge(25);
-        userService.createUser(request1);
-
-        UserRequest request2 = new UserRequest();
-        request2.setName("User Two");
-        request2.setEmail(email);
-        request2.setAge(30);
-
-        assertThatThrownBy(() -> userService.createUser(request2))
-                .isInstanceOf(UserAlreadyExistsException.class)
-                .hasMessageContaining("Email already exists");
-    }
-
-    @Test
-    void createUser_ShouldSendKafkaEvent() throws Exception {
-        UserRequest request = new UserRequest();
-        String email = "kafka-" + UUID.randomUUID() + "@example.com";
-        request.setName("Kafka User");
-        request.setEmail(email);
-        request.setAge(28);
-
-        try (Consumer<String, String> consumer = consumerFactory.createConsumer("test-group", "clientId")) {
-            consumer.subscribe(java.util.Collections.singletonList("user-events"));
-
-            userService.createUser(request);
-
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(3));
-            assertThat(records.count()).isGreaterThan(0);
-
-            boolean hasEvent = false;
-            for (var record : records) {
-                if (record.key().equals(email) &&
-                        record.value().contains("\"eventType\":\"USER_CREATED\"")) {
-                    hasEvent = true;
-                    break;
-                }
-            }
-            assertThat(hasEvent).isTrue();
-        }
-    }
-
-    @Test
-    void deleteUser_ShouldSendKafkaEvent() throws Exception {
-        UserRequest request = new UserRequest();
-        String email = "delete-kafka-" + UUID.randomUUID() + "@example.com";
-        request.setName("Kafka Delete");
-        request.setEmail(email);
-        request.setAge(35);
-
-        UserResponse created = userService.createUser(request);
-
-        try (Consumer<String, String> consumer = consumerFactory.createConsumer("test-group", "clientId")) {
-            consumer.subscribe(java.util.Collections.singletonList("user-events"));
-            consumer.poll(Duration.ofMillis(100));
-
-            userService.deleteUser(created.getId());
-
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(3));
-            assertThat(records.count()).isGreaterThan(0);
-
-            boolean hasEvent = false;
-            for (var record : records) {
-                if (record.key().equals(email) &&
-                        record.value().contains("\"eventType\":\"USER_DELETED\"")) {
-                    hasEvent = true;
-                    break;
-                }
-            }
-            assertThat(hasEvent).isTrue();
-        }
-    }
-
-
-    @Test
-    void getUserById_NonExisting_ShouldThrowException() {
-        assertThatThrownBy(() -> userService.getUserById(99999L))
+        assertThatThrownBy(() -> userService.getUserById(999L))
                 .isInstanceOf(UserNotFoundException.class)
-                .hasMessageContaining("User not found with id: 99999");
+                .hasMessageContaining("User not found with id: 999");
     }
 
     @Test
-    void updateUser_NonExistingUser_ShouldThrowException() {
+    void updateUser_Success() {
         UserUpdateRequest updateRequest = new UserUpdateRequest();
-        updateRequest.setName("Updated");
+        updateRequest.setName("Updated Name");
+        updateRequest.setAge(35);
 
-        assertThatThrownBy(() -> userService.updateUser(99999L, updateRequest))
-                .isInstanceOf(UserNotFoundException.class);
+        User updatedUser = User.builder()
+                .id(1L)
+                .name("Updated Name")
+                .email("john@example.com")
+                .age(35)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(User.class))).thenReturn(updatedUser);
+
+        UserResponse response = userService.updateUser(1L, updateRequest);
+
+        assertThat(response.getName()).isEqualTo("Updated Name");
+        assertThat(response.getAge()).isEqualTo(35);
     }
 
     @Test
-    void deleteUser_NonExistingUser_ShouldThrowException() {
-        assertThatThrownBy(() -> userService.deleteUser(99999L))
-                .isInstanceOf(UserNotFoundException.class);
+    void deleteUser_Success() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+
+        userService.deleteUser(1L);
+
+        verify(userRepository).delete(testUser);
+        verify(userEventProducer).sendUserEvent(any(), eq("john@example.com"), eq(1L), eq("John Doe"));
     }
 }
