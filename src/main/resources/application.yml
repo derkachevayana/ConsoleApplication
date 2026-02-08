@@ -1,46 +1,9 @@
 spring:
-  config:
-    import: "optional:configserver:http://localhost:8888"
-
   application:
     name: user-service
-
-  cloud:
-    config:
-      uri: http://localhost:8888
-      enabled: true
-      fail-fast: true
-      retry:
-        max-attempts: 6
-        initial-interval: 1000
-        max-interval: 2000
-        multiplier: 1.1
-
-  datasource:
-    url: jdbc:postgresql://localhost:5432/user_db
-    username: postgres
-    password: postgres
-    hikari:
-      maximum-pool-size: 10
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,circuitbreakers
-  endpoint:
-    health:
-      show-details: always
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-
-server:
-  port: 8081
+  config:
+    import: configserver:http://config-service:8888
 
 logging:
   level:
     org.springframework.cloud.config: DEBUG
-    org.springframework.boot.context.config: DEBUG
-    org.springframework.cloud: TRACE
